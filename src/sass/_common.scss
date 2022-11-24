@@ -1,1 +1,17 @@
 @import '~node_modules/modern-normalize/modern-normalize.css';
+
+.visually-hidden {
+  display: none;
+}
+
+* {
+  scroll-behavior: smooth;
+}
+
+body {
+  border-color: $accent-color;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
