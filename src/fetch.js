@@ -1,8 +1,10 @@
 import Notiflix from 'notiflix';
 import { scrollEnd } from '.';
+import axios from 'axios';
 
-const axios = require('axios').default;
+
 const API_key = '31540804-1c8c83ecff14a76faffee4b0d';
+
 
 export async function fetchPictures(search, pageNumber) {
     const url = `https://pixabay.com/api/?key=${API_key}&q=${search}&image_type=photo&orientation=horizontal&safesearch=true&per_page=40&page=${pageNumber}`;
@@ -23,5 +25,6 @@ export async function fetchPictures(search, pageNumber) {
         gallery.removeEventListener('scroll', scrollEnd);
         return;
     }
+
     return imgs.data;
 }
