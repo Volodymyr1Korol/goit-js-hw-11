@@ -1,48 +1,83 @@
-import SimpleLightbox from 'simplelightbox';
-import 'simplelightbox/dist/simple-lightbox.min.css';
+import { PixabayApi } from "./js/fetchImages";
+import markupGallery from "./templates/markupGallery.hbs";
 import Notiflix from 'notiflix';
-import { renderGallery } from './render';
-import { fetchPictures } from './fetch';
+import SimpleLightbox from "simplelightbox";
+import "simplelightbox/dist/simple-lightbox.min.css";
 
-const form = document.querySelector('#search-form');
+const searchForm = document.querySelector('#search-form');
 const gallery = document.querySelector('.gallery');
-let pageNumber;
-let searchParam;
-let lightbox = new SimpleLightbox('.gallery .gallery-div a');
-
-form.addEventListener('submit', handleSubmit);
+const loadMoreBtn = document.querySelector('.load-more');
+const searchBtn = document.querySelector('.submit-btn');
+const input = document.querySelector('input')
 
 
-async function handleSubmit(event) {
-    pageNumber = 1;
+const simpleLightbox = new SimpleLightbox('.photo-card a', {
+  captionDelay: 250,
+});
 
-    event.preventDefault();
-    let {
-        elements: { searchQuery },
-    } = event.currentTarget;
-    searchParam = searchQuery.value.replaceAll(' ', '+');
-    const data = await fetchPictures(searchParam, pageNumber);
-    console.log(data);
-    if (data.totalHits) {
-        Notiflix.Notify.success(`Hooray! We found ${data.totalHits} images.`);
+const pixabayApi = new PixabayApi()
+
+searchForm.addEventListener('submit', onSearchFormSubmit);
+loadMoreBtn.addEventListener('click', onLoadMoreSubmit)
+
+async function onSearchFormSubmit(event) {
+  event.preventDefault();
+  gallery.innerHTML = '';
+  loadMoreBtn.classList.add('is-hidden');
+  pixabayApi.page = 1;
+  pixabayApi.searchQuery = event.target.elements.searchQuery.value.trim();
+
+  if(!pixabayApi.searchQuery) {
+    Notiflix.Notify.failure('Enter the keyword, please');
+    return;
+  }
+
+  searchBtn.disabled = true;
+
+  try{    
+    const searchResult = await pixabayApi.fetchImages()
+    const imagesArr = searchResult.data.hits;    
+    
+    if (imagesArr.length === 0) {
+      Notiflix.Notify.failure('Sorry, there are no images matching your search query. Please try again.')
+      throw new Error("Limit error");
     }
-    const rendered = renderGallery(data.hits, pageNumber);
-    gallery.innerHTML = rendered.join('');
-    // scroll
-    gallery.addEventListener('scroll', scrollEnd);
-    lightbox.refresh();
-}
 
-async function loadMore() {
-    pageNumber += 1;
-    const data = await fetchPictures(searchParam, pageNumber);
-    const rendered = renderGallery(data.hits, pageNumber);
-    gallery.innerHTML += rendered.join('');
-    lightbox.refresh();
-}
-
-export function scrollEnd() {
-    if (gallery.scrollTop + gallery.clientHeight >= gallery.scrollHeight - 10) {
-        loadMore();
+    gallery.innerHTML = markupGallery(imagesArr);
+    simpleLightbox.refresh();
+    Notiflix.Notify.info(`Hooray! We found ${searchResult.data.totalHits} images.`)
+    if(searchResult.data.totalHits > pixabayApi.per_page) {
+      loadMoreBtn.classList.remove('is-hidden');
     }
+    searchBtn.disabled = false;
+  } catch(err) {console.log(err)}
+  
+  input.value = '';
 }
+
+async function onLoadMoreSubmit () {
+  pixabayApi.page += 1;
+  
+    try {
+      const searchResult = await pixabayApi.fetchImages()
+      const imagesArr = searchResult.data.hits;         
+      gallery.insertAdjacentHTML('beforeend', markupGallery(imagesArr));
+      simpleLightbox.refresh();
+      slowScroll();
+      if(Math.ceil(searchResult.data.totalHits / pixabayApi.per_page) < pixabayApi.page) {
+        loadMoreBtn.classList.add('is-hidden');
+        Notiflix.Notify.info("'We're sorry, but you've reached the end of search results.")
+      }
+    } catch(err) {console.log(err)}
+}
+
+function slowScroll () {
+  const { height: cardHeight } = document
+  .querySelector(".gallery")
+  .firstElementChild.getBoundingClientRect();
+  window.scrollBy({
+    top: cardHeight * 2,
+    behavior: "smooth",
+  });
+}
+
